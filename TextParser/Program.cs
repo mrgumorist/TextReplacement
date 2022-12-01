@@ -14,19 +14,24 @@ namespace TextParser
         public static string RemoveSpecialSymbols(this string str) =>
             str
             .Replace("{", "")
-            .Replace("}", "");
+            .Replace("}", "")
+            .Replace(".", "");
 
         public static string ToYesNoString(this bool value)
         {
             return value ? "Yes" : "No";
         }
+
+        public static string RemoveType<T>(this string str) where T : class =>
+            str.Replace($"{typeof(T).Name}", "");
     }
 
     internal class Program
     {
         public static string ReplaceText<T>(string text, T obj, string numberFormat = "0.00", string arraySeparator = ",") where T : class
         {
-            Regex regex = new Regex(@"\{.*?\}");
+            //ASK for typeof(T) or typeof(T).Name
+            Regex regex = new Regex($@"\{{{typeof(T).Name}..*?\}}");
             var matches = regex.Matches(text).GroupBy(m=>m.Value).Select(g => g.First());
 
             var props = typeof(T).GetProperties();
@@ -35,7 +40,7 @@ namespace TextParser
 
             foreach (var match in matches)
             {
-                var property = props.FirstOrDefault(p => p.Name == match.ToString().RemoveSpecialSymbols());
+                var property = props.FirstOrDefault(p => p.Name == match.ToString().RemoveSpecialSymbols().RemoveType<T>());
 
                 if (property != null)
                 {
@@ -43,18 +48,6 @@ namespace TextParser
 
                     switch (true)
                     {
-                        case true when typeof(string).IsAssignableFrom(propertyType):
-                            string strintPropertyValue = (string) obj.GetType().GetProperty(property.Name).GetValue(obj, null);
-                            text = text.Replace(match.ToString(), strintPropertyValue);
-                            break;
-                        case true when typeof(int).IsAssignableFrom(propertyType):
-                            int intPropertyValue = (int)obj.GetType().GetProperty(property.Name).GetValue(obj, null);
-                            text = text.Replace(match.ToString(), intPropertyValue.ToString());
-                            break;
-                        case true when typeof(long).IsAssignableFrom(propertyType):
-                            long longPropertyValue = (long)obj.GetType().GetProperty(property.Name).GetValue(obj, null);
-                            text = text.Replace(match.ToString(), longPropertyValue.ToString());
-                            break;
                         case true when typeof(bool).IsAssignableFrom(propertyType):
                             bool boolPropertyValue = (bool)obj.GetType().GetProperty(property.Name).GetValue(obj, null);
                             text = text.Replace(match.ToString(), boolPropertyValue.ToYesNoString());
@@ -72,6 +65,8 @@ namespace TextParser
                             text = text.Replace(match.ToString(), string.Join(arraySeparator, listPropertyValue.ToArray()));
                             break;
                         default:
+                            string strintPropertyValue = obj.GetType().GetProperty(property.Name).GetValue(obj, null).ToString();
+                            text = text.Replace(match.ToString(), strintPropertyValue);
                             break;
                     }
                 }
@@ -83,11 +78,11 @@ namespace TextParser
         static void Main(string[] args)
         {
 
-            string Template = "Today we have a new song '{Name}'. Author {Author} of {Name} is a very famous person!{NewLine}" +
-                "Duration of song: {Duration}{NewLine}" +
-                "Popular: {IsPopular}{NewLine}" +
-                "Rating: {Rating}(From 0 to 5){NewLine}" +
-                "KeyWords: {KeyWords}";
+            string Template = "Today we have a new song '{Song.Name}'. Author {Song.Author} of {Song.Name} is a very famous person!{NewLine}" +
+                "Duration of song: {Song.Duration}{NewLine}" +
+                "Popular: {Song.IsPopular}{NewLine}" +
+                "Rating: {Song.Rating}(From 0 to 5){NewLine}" +
+                "KeyWords: {Song.KeyWords}";
 
             Song song = new Song() { Author = "Author1", Name = "MySong", Duration = 183, IsPopular = true, Rating = 3.2m, KeyWords = new System.Collections.Generic.List<string>() { "A", "B", "C" } };
 
